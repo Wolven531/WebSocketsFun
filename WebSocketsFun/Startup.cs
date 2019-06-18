@@ -8,14 +8,18 @@ using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Logging;
 
 namespace WebSocketsFun
 {
     public class Startup
     {
-        public Startup(IConfiguration configuration)
+        private ILogger<Startup> _logger;
+
+        public Startup(IConfiguration configuration, ILogger<Startup> logger)
         {
             Configuration = configuration;
+            _logger = logger;
         }
 
         public IConfiguration Configuration { get; }
@@ -36,64 +40,58 @@ namespace WebSocketsFun
             {
                 app.UseDeveloperExceptionPage();
             }
-            else
-            {
-                app.UseHsts();
-            }
+            app.UseHsts();
 
-// #if NoOptions
-//     #region UseWebSockets
-//             app.UseWebSockets();
-//     #endregion
-// #endif
+            // #if NoOptions
+            //     #region UseWebSockets
+            //             app.UseWebSockets();
+            //     #endregion
+            // #endif
 
-// #if UseOptions
-//     #region UseWebSocketsOptions
-//             var webSocketOptions = new WebSocketOptions() 
-//             {
-//                 KeepAliveInterval = TimeSpan.FromSeconds(120),
-//                 ReceiveBufferSize = 4 * 1024
-//             };
+//#if UseOptions
+            #region UseWebSocketsWithOptions
+             var webSocketOptions = new WebSocketOptions() 
+             {
+                 KeepAliveInterval = TimeSpan.FromSeconds(120),
+                 ReceiveBufferSize = 4 * 1024
+             };
 
-//             app.UseWebSockets(webSocketOptions);
-//     #endregion
-// #endif
+             app.UseWebSockets(webSocketOptions);
+            #endregion
+//#endif
 
-// #if UseOptionsAO
-    #region UseWebSocketsOptionsAO
-            var webSocketOptions = new WebSocketOptions()
-            {
-                KeepAliveInterval = TimeSpan.FromSeconds(120),
-                ReceiveBufferSize = 4 * 1024
-            };
-            //webSocketOptions.AllowedOrigins.Add("https://client.com");
-            //webSocketOptions.AllowedOrigins.Add("https://www.client.com");
+            //// #if UseOptionsAllowedOrigins
+            //    #region UseWebSocketsOptionsAllowedOrigins
+            //            var webSocketOptions = new WebSocketOptions()
+            //            {
+            //                KeepAliveInterval = TimeSpan.FromSeconds(120),
+            //                ReceiveBufferSize = 4 * 1024
+            //            };
+            //            webSocketOptions.AllowedOrigins.Add("https://client.com");
+            //            webSocketOptions.AllowedOrigins.Add("https://www.client.com");
 
-            app.UseWebSockets(webSocketOptions);
-    #endregion
-// #endif
+            //            app.UseWebSockets(webSocketOptions);
+            //    #endregion
+            //// #endif
 
-#region AcceptWebSocket
             app.Use(async (context, next) =>
             {
-                if (context.Request.Path == "/ws")
-                {
-                    if (context.WebSockets.IsWebSocketRequest)
-                    {
-                        WebSocket webSocket = await context.WebSockets.AcceptWebSocketAsync();
-                        await Echo(context, webSocket);
-                    }
-                    else
-                    {
-                        context.Response.StatusCode = 400;
-                    }
-                }
-                else
+                if (context.Request.Path != "/ws")
                 {
                     await next();
+                    return;
                 }
+                if (!context.WebSockets.IsWebSocketRequest)
+                {
+                    _logger.LogCritical("Received request at web socket path that was not a WebSocket request, returning 400...");
+                    context.Response.StatusCode = 400;
+                    return;
+                }
+                _logger.LogCritical("Received request proper WebSocket request, awaiting transition of request to connection...");
+                var webSocket = await context.WebSockets.AcceptWebSocketAsync();
+                _logger.LogCritical("Transition complete, starting Echo...");
+                await Echo(context, webSocket);
             });
-#endregion
 
             app.UseHttpsRedirection();
             app.UseMvc();
@@ -105,7 +103,11 @@ namespace WebSocketsFun
             WebSocketReceiveResult result = await webSocket.ReceiveAsync(new ArraySegment<byte>(buffer), CancellationToken.None);
             while (!result.CloseStatus.HasValue)
             {
-                await webSocket.SendAsync(new ArraySegment<byte>(buffer, 0, result.Count), result.MessageType, result.EndOfMessage, CancellationToken.None);
+                await webSocket.SendAsync(
+                    new ArraySegment<byte>(buffer, 0, result.Count),
+                    result.MessageType,
+                    result.EndOfMessage,
+                    CancellationToken.None);
                 result = await webSocket.ReceiveAsync(new ArraySegment<byte>(buffer), CancellationToken.None);
             }
             await webSocket.CloseAsync(result.CloseStatus.Value, result.CloseStatusDescription, CancellationToken.None);
