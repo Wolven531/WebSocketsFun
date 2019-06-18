@@ -1,15 +1,13 @@
 ﻿using System;
-using System.Collections.Generic;
-using System.Linq;
+using System.Net.WebSockets;
+using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Hosting;
-using Microsoft.AspNetCore.HttpsPolicy;
+using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
-using Microsoft.Extensions.Logging;
-using Microsoft.Extensions.Options;
 
 namespace WebSocketsFun
 {
@@ -68,8 +66,8 @@ namespace WebSocketsFun
                 KeepAliveInterval = TimeSpan.FromSeconds(120),
                 ReceiveBufferSize = 4 * 1024
             };
-            webSocketOptions.AllowedOrigins.Add("https://client.com");
-            webSocketOptions.AllowedOrigins.Add("https://www.client.com");
+            //webSocketOptions.AllowedOrigins.Add("https://client.com");
+            //webSocketOptions.AllowedOrigins.Add("https://www.client.com");
 
             app.UseWebSockets(webSocketOptions);
     #endregion
