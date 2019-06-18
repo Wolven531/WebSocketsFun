@@ -14,7 +14,7 @@ namespace WebSocketsFun.Controllers
         [HttpGet]
         public ActionResult<string> Get()
         {
-            return "WebSocket Server is up and running";
+            return "WebSocket Server is up and running at `/ws`";
         }
 
         //// GET api/values/5
